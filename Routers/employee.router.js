@@ -4,16 +4,49 @@ const { Employee } = require("../Models/employee.model");
 const employeeRouter=express.Router();
 
 
-employeeRouter.get("/",async(req,res)=>{
+employeeRouter.get("/", async (req, res) => {
+  try {
+      // Pagination
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skipIndex = (page - 1) * limit;
 
-    try {
-        const employees= await Employee.find();
-        res.status(200).send(employees)
-    } catch (error) {
-        res.status(400).send({error:error})
-    }
+      // Filtering
+      const filters = {};
+      if (req.query.department) {
+          filters.department = req.query.department;
+      }
+      // Add more filters if needed...
 
-})
+      // Sorting
+      const sort = {};
+      if (req.query.sortBy) {
+          const parts = req.query.sortBy.split(':');
+          sort[parts[0]] = parts[1] === 'desc' ? -1 : 1;
+      }
+
+      // Searching
+      const searchQuery = {};
+      if (req.query.search) {
+          searchQuery.$or = [
+              { firstName: { $regex: req.query.search, $options: 'i' } },
+              { lastName: { $regex: req.query.search, $options: 'i' } },
+              { email: { $regex: req.query.search, $options: 'i' } },
+              { department: { $regex: req.query.search, $options: 'i' } },
+          ];
+      }
+
+      const employees = await Employee.find(filters)
+          .sort(sort)
+          .skip(skipIndex)
+          .limit(limit)
+          .exec();
+
+      res.status(200).send(employees);
+  } catch (error) {
+      res.status(400).send({ error: error });
+  }
+});
 
 employeeRouter.post("/",async(req,res)=>{
     try {
